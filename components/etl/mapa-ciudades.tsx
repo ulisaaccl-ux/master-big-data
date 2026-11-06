@@ -204,7 +204,17 @@ export function MapaCiudades({ etl }: { etl: PipelineEtl }) {
         cooperativeGestures: true,
         locale: TEXTOS_MAPA,
       })
-      mapa.once("load", () => setEstadoMapa("listo"))
+      const marcarListo = () => {
+        setEstadoMapa((prev) => (prev === "listo" ? prev : "listo"))
+      }
+
+      mapa.once("load", marcarListo)
+      mapa.on("style.load", marcarListo)
+      mapa.once("render", marcarListo)
+
+      // Fallback de seguridad: si las teselas tardan en la red, desbloquear la interfaz
+      const temporizadorListo = setTimeout(marcarListo, 2500)
+
       // Los iconos dibujados del estilo vintage se pintan cuando el mapa los pide.
       mapa.on("styleimagemissing", (e) => {
         const icono = iconoVintage(e.id)
@@ -212,8 +222,6 @@ export function MapaCiudades({ etl }: { etl: PipelineEtl }) {
           mapa.addImage(e.id, icono, { pixelRatio: 2 })
       })
       mapa.on("error", (e) => {
-        // Un error de tesela suelta no invalida el mapa; uno de estilo sí.
-        if (!mapa.isStyleLoaded() && !mapa.loaded()) setEstadoMapa("error")
         console.warn("Mapa:", e.error?.message)
       })
       // Pulsar fuera de las ciudades cierra la ficha.
@@ -253,6 +261,9 @@ export function MapaCiudades({ etl }: { etl: PipelineEtl }) {
     if (!mapaRef.current || siguiente.clave === claveEstiloRef.current) return
     claveEstiloRef.current = siguiente.clave
     mapaRef.current.setStyle(siguiente.estilo)
+    const marcarListo = () => setEstadoMapa((p) => (p === "listo" ? p : "listo"))
+    mapaRef.current.once("style.load", marcarListo)
+    mapaRef.current.once("load", marcarListo)
   }, [estilo, oscuro, vintage, elementos])
 
   const { viento, error: errorViento } = useVientoActual(verViento)
